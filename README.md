@@ -7,7 +7,7 @@
 
 ## What is this?
 
-**Skill Optimizer** is a tool that evaluates and automatically improves AI skill definitions (SKILL.md files). It combines:
+**Skill Optimizer** evaluates and automatically improves AI skill definitions (SKILL.md files). It combines:
 
 - **8-dimension scoring** (structure + effectiveness)
 - **Deep critique** (P0/P1/P2 issue lists + user manuals)
@@ -45,6 +45,28 @@ skill-optimizer optimize my-skill
 | Architecture | 15 | Structure, no redundancy |
 | Effectiveness | 25 | Real test prompt performance |
 
+## Workflow
+
+```
+User: skill-optimizer optimize my-skill
+    ↓
+Phase 1: 8-dimension scoring (rubric.py)
+    ↓
+Phase 2: Deep critique (critique.py)
+    - Scan skill directory
+    - Generate critique.md (P0/P1/P2 issues)
+    - Generate manual.md (user manual)
+    ↓
+Phase 3: Smart optimization (optimizer.py)
+    - Target lowest dimension
+    - Incorporate critique issues
+    - Ratchet: keep if score ↑, rollback if ≤
+    ↓
+Phase 4: Verification
+    - Re-score
+    - Check if issues fixed
+```
+
 ## Ratchet Mechanism
 
 The optimizer only keeps changes that **improve the score**:
@@ -54,6 +76,29 @@ The optimizer only keeps changes that **improve the score**:
 3. Re-score
 4. **If score ↑ → keep** | **If score ≤ → rollback**
 5. Skip dimensions that fail 2 times in a row
+
+### Example Output
+
+```bash
+$ skill-optimizer optimize feedback
+
+[optimizer] Baseline: 48/100
+  Frontmatter: 5/8 — name规范; description缺少触发词
+  Workflow: 8/15 — 步骤数:21; 输入输出一般(2)
+  Boundary: 0/10 — OK
+  ...
+
+[optimizer] === Round 1 ===
+[optimizer] Lowest: Boundary (0/10)
+[optimizer] Snapshot saved
+[optimizer] Change: boundary section added
+[optimizer] Score: 48 → 52
+[optimizer] ✅ Keep improvement
+
+[optimizer] === Round 2 ===
+[optimizer] Lowest: Checkpoint (0/7)
+...
+```
 
 ## Configuration
 
@@ -77,9 +122,59 @@ skill-optimizer/
 │   ├── scorer.py      # Execution scoring
 │   └── cli.py         # Command line interface
 ├── tests/
+│   └── test_rubric.py # Unit tests
 └── examples/
+    └── sample-skill/
+        └── SKILL.md   # Example skill
+```
+
+## API Usage
+
+```python
+from skill_optimizer.rubric import score_skill
+from skill_optimizer.critique import run_critique
+from skill_optimizer.optimizer import run_optimization
+
+# Score a skill
+result = score_skill("my-skill")
+print(f"Total: {result['total']}/100")
+
+# Critique
+result = run_critique("my-skill")
+print(f"Report: {result['critique_path']}")
+
+# Optimize
+result = run_optimization("my-skill", max_rounds=3)
+print(f"Final: {result['final_score']}/100")
+```
+
+## Testing
+
+```bash
+# Run tests
+python -m pytest tests/
+
+# Test with sample skill
+skill-optimizer score examples/sample-skill
 ```
 
 ## License
 
 MIT — see [LICENSE](LICENSE)
+
+## Contributing
+
+1. Fork the repo
+2. Create a branch: `git checkout -b feature-name`
+3. Make changes
+4. Run tests: `python -m pytest`
+5. Submit PR
+
+## Changelog
+
+### v1.0.0 (2026-04-27)
+- Initial release
+- 8-dimension scoring engine
+- Ratchet optimization mechanism
+- Deep critique integration
+- CLI interface
